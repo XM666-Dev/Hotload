@@ -41,7 +41,7 @@ np.CrossCallAdd("hotload.file_get_write_time", function(filename)
     return tostring(ffi.cast("long long*", write_time)[0])
 end)
 np.CrossCallAdd("hotload.file_get_content", function(filename)
-    if io.open(filename) == nil then return " " end
+    if io.open(filename) == nil then return "" end
     local content = io.input(filename):read "*a"
     io.input():close()
     return content
