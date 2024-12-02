@@ -6,13 +6,6 @@ end
 local function newenv()
     local env = {}
     for k, v in pairs(g) do
-        if type(v) == "table" then
-            local t = v
-            v = {}
-            for key, value in pairs(t) do
-                v[key] = value
-            end
-        end
         env[k] = v
     end
     setfenv(function()
@@ -21,6 +14,7 @@ local function newenv()
             return g.setfenv(g.loadfile(...), env)
         end
 
+        __loadonce = {}
         dofile_once = function(filename)
             local result = nil
             local cached = __loadonce[filename]
@@ -36,6 +30,7 @@ local function newenv()
             return result
         end
 
+        __loaded = {}
         dofile = function(filename)
             local f = __loaded[filename]
             if f == nil then
@@ -58,7 +53,9 @@ local function reload()
     local filename = "%s"
     ModTextFileSetContent(filename, CrossCall("hotload.file_get_content", filename))
     __modified[filename] = CrossCall("hotload.file_get_write_time", filename)
-    env.__loaded[filename] = setfenv(loadfile(filename), env)
+    local f = loadfile(filename)
+    if f == nil then return end
+    env.__loaded[filename] = setfenv(f, env)
     env.dofile(filename)
 end
 reload()
@@ -74,9 +71,11 @@ setmetatable(_G, {
         end
         if modified then
             reload()
-            print("HOTLOADED!")
+            print("Reloading Lua (%s)")
         end
         return env[k]
     end,
 })
---to do: io & do_mod_appends
+--to do: do_mod_appends
+
+dofile = function() end

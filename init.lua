@@ -1,6 +1,6 @@
 dofile_once("mods/hotload/NoitaPatcher/load.lua")
-
 local np = require("noitapatcher")
+local nxml = dofile_once("mods/hotload/files/nxml.lua")
 local ffi = require("ffi")
 
 ffi.cdef [[
@@ -11,16 +11,6 @@ typedef struct _FILETIME {
     DWORD dwLowDateTime;
     DWORD dwHighDateTime;
 } FILETIME, *PFILETIME, *LPFILETIME;
-typedef struct _SYSTEMTIME {
-    unsigned short wYear;
-    unsigned short wMonth;
-    unsigned short wDayOfWeek;
-    unsigned short wDay;
-    unsigned short wHour;
-    unsigned short wMinute;
-    unsigned short wSecond;
-    unsigned short wMilliseconds;
-} SYSTEMTIME, *PSYSTEMTIME, *LPSYSTEMTIME;
 
 HANDLE CreateFileA(
     const char* lpFileName,
@@ -39,64 +29,57 @@ BOOL GetFileTime(
     LPFILETIME lpLastWriteTime
 );
 
-BOOL FileTimeToSystemTime(
-    const FILETIME* lpFileTime,
-    LPSYSTEMTIME lpSystemTime
-);
-
 BOOL CloseHandle(HANDLE hObject);
 ]]
 
-local GENERIC_READ = 0x80000000
-local FILE_SHARE_READ = 0x00000001
-local OPEN_EXISTING = 3
-
-local function get_file_modification_time(file_path)
-    local handle = ffi.C.CreateFileA(file_path, GENERIC_READ, FILE_SHARE_READ, nil, OPEN_EXISTING, 0, nil)
-    if handle == ffi.cast("HANDLE", -1) then
-        return nil, "无法打开文件"
-    end
-
-    local write_time = ffi.new("FILETIME[1]")
-    if ffi.C.GetFileTime(handle, nil, nil, write_time) == 0 then
-        ffi.C.CloseHandle(handle)
-        return nil, "无法获取文件时间"
-    end
-
-    ffi.C.CloseHandle(handle)
-
-    local system_time = ffi.new("SYSTEMTIME")
-    if ffi.C.FileTimeToSystemTime(write_time, system_time) == 0 then
-        return nil, "无法转换文件时间"
-    end
-
-    return string.format(
-        "%04d-%02d-%02d %02d:%02d:%02d",
-        system_time.wYear,
-        system_time.wMonth,
-        system_time.wDay,
-        system_time.wHour,
-        system_time.wMinute,
-        system_time.wSecond
-    )
-end
-
 np.CrossCallAdd("hotload.file_get_write_time", function(filename)
+    local OPEN_EXISTING = 3
     local handle = ffi.C.CreateFileA(filename, 0, 0, nil, OPEN_EXISTING, 0, nil)
     local write_time = ffi.new("FILETIME[1]")
     ffi.C.GetFileTime(handle, nil, nil, write_time)
     ffi.C.CloseHandle(handle)
-    return tonumber(ffi.cast("long long*", write_time)[0])
+    return tostring(ffi.cast("long long*", write_time)[0])
 end)
 np.CrossCallAdd("hotload.file_get_content", function(filename)
-    io.input(filename)
-    local content = io.read "*a"
+    if io.open(filename) == nil then return " " end
+    local content = io.input(filename):read "*a"
     io.input():close()
     return content
 end)
-function make_hotload(filename)
-    ModTextFileSetContent(filename, ModTextFileGetContent("mods/hotload/files/hotload.lua"):format(filename))
+
+local content = io.input("save00/mod_config.xml"):read "*a"
+io.input():close()
+local xml = nxml.parse(content)
+for mod in xml:each_child() do
+    if mod.attr.name == "hotload" then
+        xml:remove_child(mod)
+        table.insert(xml.children, 1, mod)
+        break
+    end
+end
+io.output("save00/mod_config.xml"):write(tostring(xml))
+io.output():close()
+
+local function make_hotload(filename)
+    ModTextFileSetContent(filename, ModTextFileGetContent("mods/hotload/files/hotload.lua"):format(filename, filename))
 end
 
-make_hotload("mods/hotloadtest/init.lua")
-make_hotload("mods/hotloadtest/files/test.lua")
+local mods = { "120fps", "test" }
+for i, mod in ipairs(mods) do
+    make_hotload(("mods/%s/init.lua"):format(mod))
+    make_hotload(("mods/%s/settings.lua"):format(mod))
+end
+
+function OnWorldPreUpdate()
+    for i, entity in ipairs(EntityGetInRadius(0, 0, math.huge)) do
+        for i, lua in ipairs(EntityGetComponent(entity, "LuaComponent") or {}) do
+            for k, v in ipairs(ComponentGetMembers(lua) or {}) do
+                for i, mod in ipairs(mods) do
+                    if k:find("script_") and (v:find(("mods/%s/"):format(mod)) or ModDoesFileExist(("mods/%s/%s"):format(mod, v))) then
+                        make_hotload(v)
+                    end
+                end
+            end
+        end
+    end
+end
