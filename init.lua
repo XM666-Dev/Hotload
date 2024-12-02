@@ -32,6 +32,20 @@ BOOL GetFileTime(
 BOOL CloseHandle(HANDLE hObject);
 ]]
 
+local function file_get_content(filename)
+    local file = io.open(filename, "r")
+    if file == nil then return "" end
+    local content = file:read "*a"
+    file:close()
+    return content
+end
+local function file_set_content(filename, content)
+    local file = io.open(filename, "w")
+    if file == nil then return end
+    file:write(content)
+    file:close()
+end
+
 np.CrossCallAdd("hotload.file_get_write_time", function(filename)
     local OPEN_EXISTING = 3
     local handle = ffi.C.CreateFileA(filename, 0, 0, nil, OPEN_EXISTING, 0, nil)
@@ -40,15 +54,9 @@ np.CrossCallAdd("hotload.file_get_write_time", function(filename)
     ffi.C.CloseHandle(handle)
     return tostring(ffi.cast("long long*", write_time)[0])
 end)
-np.CrossCallAdd("hotload.file_get_content", function(filename)
-    if io.open(filename) == nil then return "" end
-    local content = io.input(filename):read "*a"
-    io.input():close()
-    return content
-end)
+np.CrossCallAdd("hotload.file_get_content", file_get_content)
 
-local content = io.input("save00/mod_config.xml"):read "*a"
-io.input():close()
+local content = file_get_content("save00/mod_config.xml")
 local xml = nxml.parse(content)
 for mod in xml:each_child() do
     if mod.attr.name == "hotload" then
@@ -57,9 +65,9 @@ for mod in xml:each_child() do
         break
     end
 end
-io.output("save00/mod_config.xml"):write(tostring(xml))
-io.output():close()
+file_set_content("save00/mod_config.xml", tostring(xml))
 
+local ModTextFileSetContent = ModTextFileSetContent
 local function make_hotload(filename)
     ModTextFileSetContent(filename, ModTextFileGetContent("mods/hotload/files/hotload.lua"):format(filename, filename))
 end
@@ -70,15 +78,18 @@ for i, mod in ipairs(mods) do
     make_hotload(("mods/%s/settings.lua"):format(mod))
 end
 
+local hotload = {}
 function OnWorldPreUpdate()
     for i, entity in ipairs(EntityGetInRadius(0, 0, math.huge)) do
         for i, lua in ipairs(EntityGetComponent(entity, "LuaComponent") or {}) do
-            for k, v in ipairs(ComponentGetMembers(lua) or {}) do
-                for i, mod in ipairs(mods) do
-                    if k:find("script_") and (v:find(("mods/%s/"):format(mod)) or ModDoesFileExist(("mods/%s/%s"):format(mod, v))) then
-                        make_hotload(v)
-                    end
+            for k, v in pairs(ComponentGetMembers(lua) or {}) do
+                if k:find("script_") and not hotload[v] then
+                    hotload[v] = true
+                    make_hotload(v)
                 end
+                --for i, mod in ipairs(mods) do
+                --v:find(("mods/%s/"):format(mod))ModDoesFileExist(("mods/%s/%s"):format(mod, v))
+                --end
             end
         end
     end
