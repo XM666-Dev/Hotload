@@ -47,10 +47,7 @@ local function load()
         end
         _G = env
         local success, f = pcall(loadfile, raw_filename)
-        if not success then
-            print_error(f)
-            f = nil
-        end
+        if not success then f = nil end
         if g.____cached_func ~= nil then ____cached_func = f end
         return f
     end, env)()
