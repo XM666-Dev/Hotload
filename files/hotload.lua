@@ -1,3 +1,18 @@
+local function file_get_write_time(filename)
+    return ModTextFileGetContent(filename)
+    --local t = ModLuaFileGetAppends("mods/hotload/written.txt")
+    --local times = {}
+    --for i = 1, #t, 2 do
+    --    times[t[i]] = t[i + 1]
+    --end
+    --if times[filename]==nil then
+    --    table.insert(t, filename)
+    --    table.insert(t, "")
+    --    ModLuaFileSetAppends("mods/hotload/written.txt", fi)
+    --    return ""
+    --end
+    --return times[filename]
+end
 local env
 local written_time
 local raw_filename = "%1"
@@ -13,7 +28,7 @@ local function load()
     return setfenv(function()
         written_time = {}
         loadfile = function(...)
-            local time = g.CrossCall("hotload.file_get_write_time", ...)
+            local time = file_get_write_time(...)
             if time ~= "0" then written_time[...] = time end
             local f = g.loadfile(...)
             if f ~= nil then return g.setfenv(f, env) end
@@ -59,13 +74,13 @@ setmetatable(_G, {
     __index = function(t, k)
         local written = false
         for filename, previous_time in pairs(written_time) do
-            local time = CrossCall("hotload.file_get_write_time", filename)
+            local time = file_get_write_time(filename)
             if time ~= previous_time then
                 written = true
-                if filename == raw_filename then
-                    local content = CrossCall("hotload.file_get_content", filename)
-                    if content ~= nil then g.ModTextFileSetContent(filename, content) end
-                end
+                --if filename == raw_filename then
+                --    local content = file_get_content(filename)
+                --    if content ~= nil then g.ModTextFileSetContent(filename, content) end
+                --end
             end
         end
         if written then

@@ -5,13 +5,13 @@ mod_settings_version = 1
 mod_settings =
 {
     {
-        id = "hotload_mod_id",
-        ui_name = "Hotload mod id",
-        ui_description = "For init.lua.",
-        value_default = "",
-        text_max_length = 20,
-        allowed_characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_0123456789",
-        scope = MOD_SETTING_SCOPE_RUNTIME_RESTART,
+        --id = "hotload_mod_id",
+        --ui_name = "Hotload mod id",
+        --ui_description = "For init.lua.",
+        --value_default = "",
+        --text_max_length = 20,
+        --allowed_characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_0123456789",
+        --scope = MOD_SETTING_SCOPE_RUNTIME_RESTART,
     },
 }
 
