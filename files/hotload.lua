@@ -81,5 +81,5 @@ setmetatable(_G, {
         return env[k]
     end,
 })
-dofile = nil
 ____cached_func = nil
+dofile = nil
