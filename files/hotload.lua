@@ -1,19 +1,23 @@
-local __modified = {}
+local env
+local written_time
+local raw_filename = "%1"
 local g = {}
 for k, v in pairs(_G) do
     g[k] = v
 end
-local function newenv()
-    local env = {}
+local function load()
+    env = {}
     for k, v in pairs(g) do
         env[k] = v
     end
-    setfenv(function()
-        function loadfile(...)
-            __modified[...] = g.CrossCall("hotload.file_get_write_time", ...)
-            return g.setfenv(g.loadfile(...), env)
+    return setfenv(function()
+        written_time = {}
+        loadfile = function(...)
+            local time = g.CrossCall("hotload.file_get_write_time", ...)
+            if time ~= "0" then written_time[...] = time end
+            local f = g.loadfile(...)
+            if f ~= nil then return g.setfenv(f, env) end
         end
-
         __loadonce = {}
         dofile_once = function(filename)
             local result = nil
@@ -29,7 +33,6 @@ local function newenv()
             end
             return result
         end
-
         __loaded = {}
         dofile = function(filename)
             local f = __loaded[filename]
@@ -42,40 +45,44 @@ local function newenv()
             do_mod_appends(filename)
             return result
         end
-
         _G = env
+        local success, f = pcall(loadfile, raw_filename)
+        if not success then
+            print_error(f)
+            f = nil
+        end
+        if g.____cached_func ~= nil then ____cached_func = f end
+        return f
     end, env)()
-    return env
 end
-local env
-local function reload()
-    env = newenv()
-    local filename = "%s"
-    ModTextFileSetContent(filename, CrossCall("hotload.file_get_content", filename))
-    __modified[filename] = CrossCall("hotload.file_get_write_time", filename)
-    local f = loadfile(filename)
-    if f == nil then return end
-    env.__loaded[filename] = setfenv(f, env)
-    env.dofile(filename)
-end
-reload()
+ModTextFileSetContent(raw_filename, "%2")
+local success, error = pcall(load())
+if not success then print_error(error) end
 setmetatable(_G, {
     __index = function(t, k)
-        local modified = false
-        for filename, previous_time in pairs(__modified) do
+        local written = false
+        for filename, previous_time in pairs(written_time) do
             local time = CrossCall("hotload.file_get_write_time", filename)
             if time ~= previous_time then
-                __modified[filename] = time
-                modified = true
+                written = true
+                if filename == raw_filename then
+                    local content = CrossCall("hotload.file_get_content", filename)
+                    if content ~= nil then g.ModTextFileSetContent(filename, content) end
+                end
             end
         end
-        if modified then
-            reload()
-            print("Reloading Lua (%s)")
+        if written then
+            print("Reloading " .. raw_filename)
+            if g.____cached_func ~= nil then
+                load()
+            else
+                local success, error = pcall(load())
+                if not success then print_error(error) end
+                do_mod_appends(raw_filename)
+            end
         end
         return env[k]
     end,
 })
---to do: do_mod_appends
-
-dofile = function() end
+dofile = nil
+____cached_func = nil
