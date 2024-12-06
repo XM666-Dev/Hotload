@@ -11,7 +11,8 @@ local env
 local times
 local f = loadfile
 function loadfile(...)
-    times[...] = CrossCall("hotload.file_get_write_time", ...)
+    local time = CrossCall("hotload.file_get_write_time", ...)
+    if time ~= "0" then times[...] = time end
     local f = f(...)
     if f ~= nil then return setfenv(f, env) end
 end
