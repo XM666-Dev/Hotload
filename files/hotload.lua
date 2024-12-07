@@ -12,7 +12,7 @@ local times
 local f = loadfile
 function loadfile(...)
     local time = CrossCall("hotload.file_get_write_time", ...)
-    if time ~= "0" then times[...] = time end
+    if CrossCall("hotload.not_equal", time, 0) then times[...] = time end
     local f = f(...)
     if f ~= nil then return setfenv(f, env) end
 end
@@ -66,7 +66,7 @@ setmetatable(_G, {
     __index = function(t, k)
         for filename, previous_time in pairs(times) do
             local time = CrossCall("hotload.file_get_write_time", filename)
-            if time ~= previous_time then
+            if CrossCall("hotload.not_equal", time, previous_time) then
                 --%3
 
                 print("Reloading %1")

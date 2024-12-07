@@ -55,7 +55,7 @@ if require ~= nil then
         local write_time = ffi.new("FILETIME[1]")
         ffi.C.GetFileTime(handle, nil, nil, write_time)
         ffi.C.CloseHandle(handle)
-        return tostring(ffi.cast("long long*", write_time)[0]):sub(1, -3)
+        return ffi.cast("double*", write_time)[0]
     end
 
     ffi.cdef [[
@@ -96,17 +96,16 @@ if require ~= nil then
 
         local write_time = ffi.new("FILETIME[1]")
         ffi.C.GetFileTime(handle, nil, nil, write_time)
-        if tostring(ffi.cast("long long*", write_time)[0]):sub(1, -3) == previous_time then
+        if ffi.cast("int64_t*", write_time)[0] == tointeger(previous_time) then
             ffi.C.CloseHandle(handle)
             return
         end
 
-        local size = 0
+        local size
         for i = 1, 512 do
+            size = ffi.C.GetFileSize(handle, nil)
             if size > 0 then
                 break
-            else
-                size = ffi.C.GetFileSize(handle, nil)
             end
         end
         if size == 0xffffffff then size = 0 end
@@ -115,6 +114,14 @@ if require ~= nil then
         ffi.C.ReadFile(handle, buffer, size, nil, nil)
         ffi.C.CloseHandle(handle)
         ModTextFileSetContent(filename, ffi.string(buffer, size))
+    end
+
+    function tointeger(n)
+        return ffi.cast("int64_t*", ffi.new("double[1]", n))[0]
+    end
+
+    function not_equal(x, y)
+        return tointeger(x) ~= tointeger(y)
     end
 else
     function file_is_exist(filename)
@@ -132,7 +139,9 @@ function make_hotload(filename)
                 if file_is_exist(filename) then
                     return ('CrossCall("hotload.file_get_content", "%s")'):format(filename)
                 end
-                return ("%q"):format(ModTextFileGetContent(filename))
+                local content = ModTextFileGetContent(filename)
+                if content == nil then content = "" end
+                return ("%q"):format(content)
             elseif file_is_exist(filename) then
                 return ('CrossCall("hotload.file_update", "%s", times["%s"])'):format(filename, filename)
             end
