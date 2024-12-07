@@ -50,12 +50,12 @@ if require ~= nil then
         BOOL CloseHandle(HANDLE hObject);
     ]]
     local OPEN_EXISTING = 3
-    function file_get_write_time(filename)
+    function file_get_write_time(filename, previous_time)
         local handle = ffi.C.CreateFileA(filename, 0, 0, nil, OPEN_EXISTING, 0, nil)
         local write_time = ffi.new("FILETIME[1]")
         ffi.C.GetFileTime(handle, nil, nil, write_time)
         ffi.C.CloseHandle(handle)
-        return ffi.cast("double*", write_time)[0]
+        if ffi.cast("uint64_t*", write_time)[0] ~= tointeger(previous_time) then return ffi.cast("double*", write_time)[0] end
     end
 
     ffi.cdef [[
@@ -96,7 +96,7 @@ if require ~= nil then
 
         local write_time = ffi.new("FILETIME[1]")
         ffi.C.GetFileTime(handle, nil, nil, write_time)
-        if ffi.cast("int64_t*", write_time)[0] == tointeger(previous_time) then
+        if ffi.cast("uint64_t*", write_time)[0] == tointeger(previous_time) then
             ffi.C.CloseHandle(handle)
             return
         end
@@ -117,11 +117,7 @@ if require ~= nil then
     end
 
     function tointeger(n)
-        return ffi.cast("int64_t*", ffi.new("double[1]", n))[0]
-    end
-
-    function not_equal(x, y)
-        return tointeger(x) ~= tointeger(y)
+        return ffi.cast("uint64_t*", ffi.new("double[1]", n))[0]
     end
 else
     function file_is_exist(filename)

@@ -22,7 +22,6 @@ np.CrossCallAdd("hotload.file_get_content", file_get_content)
 np.CrossCallAdd("hotload.file_is_exist", file_is_exist)
 np.CrossCallAdd("hotload.file_get_write_time", file_get_write_time)
 np.CrossCallAdd("hotload.file_update", file_update)
-np.CrossCallAdd("hotload.not_equal", not_equal)
 function OnWorldInitialized()
     EntityAddComponent2(EntityCreateNew(), "LuaComponent", { script_source_file = "mods/hotload/files/component.lua" })
 end
