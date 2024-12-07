@@ -23,18 +23,20 @@ if require ~= nil then
 
     local ffi = require("ffi")
     ffi.cdef [[
-        typedef unsigned long DWORD;
         typedef void* HANDLE;
+        typedef const char* LPCSTR;
+        typedef unsigned long DWORD;
+        typedef void* LPVOID;
         typedef int BOOL;
-        typedef struct _FILETIME {
+        typedef struct {
             DWORD dwLowDateTime;
             DWORD dwHighDateTime;
         } FILETIME, *PFILETIME, *LPFILETIME;
         HANDLE CreateFileA(
-            const char* lpFileName,
+            LPCSTR lpFileName,
             DWORD dwDesiredAccess,
             DWORD dwShareMode,
-            void* lpSecurityAttributes,
+            LPVOID lpSecurityAttributes,
             DWORD dwCreationDisposition,
             DWORD dwFlagsAndAttributes,
             HANDLE hTemplateFile
@@ -55,6 +57,65 @@ if require ~= nil then
         ffi.C.CloseHandle(handle)
         return tostring(ffi.cast("long long*", write_time)[0]):sub(1, -3)
     end
+
+    ffi.cdef [[
+        typedef void* HANDLE;
+        typedef const char* LPCSTR;
+        typedef unsigned long DWORD;
+        typedef void* LPVOID;
+        typedef DWORD* LPDWORD;
+        typedef int BOOL;
+        HANDLE CreateFileA(
+            LPCSTR lpFileName,
+            DWORD dwDesiredAccess,
+            DWORD dwShareMode,
+            LPVOID lpSecurityAttributes,
+            DWORD dwCreationDisposition,
+            DWORD dwFlagsAndAttributes,
+            HANDLE hTemplateFile
+        );
+        DWORD GetFileSize(
+            HANDLE hFile,
+            LPDWORD lpFileSizeHigh
+        );
+        BOOL ReadFile(
+            HANDLE hFile,
+            LPVOID lpBuffer,
+            DWORD nNumberOfBytesToRead,
+            DWORD* lpNumberOfBytesRead,
+            LPVOID lpOverlapped
+        );
+        BOOL CloseHandle(HANDLE hObject);
+    ]]
+    local GENERIC_READ = 0x80000000
+    local FILE_SHARE_READ = 0x00000001
+    local FILE_SHARE_WRITE = 0x00000002
+    local ModTextFileSetContent = ModTextFileSetContent
+    function file_update(filename, previous_time)
+        local handle = ffi.C.CreateFileA(filename, GENERIC_READ, FILE_SHARE_READ + FILE_SHARE_WRITE, nil, OPEN_EXISTING, 0, nil)
+
+        local write_time = ffi.new("FILETIME[1]")
+        ffi.C.GetFileTime(handle, nil, nil, write_time)
+        if tostring(ffi.cast("long long*", write_time)[0]):sub(1, -3) == previous_time then
+            ffi.C.CloseHandle(handle)
+            return
+        end
+
+        local size = 0
+        for i = 1, 512 do
+            if size > 0 then
+                break
+            else
+                size = ffi.C.GetFileSize(handle, nil)
+            end
+        end
+        if size == 0xffffffff then size = 0 end
+        local buffer = ffi.new("char[?]", size)
+
+        ffi.C.ReadFile(handle, buffer, size, nil, nil)
+        ffi.C.CloseHandle(handle)
+        ModTextFileSetContent(filename, ffi.string(buffer, size))
+    end
 else
     function file_is_exist(filename)
         return CrossCall("hotload.file_is_exist", filename)
@@ -73,14 +134,7 @@ function make_hotload(filename)
                 end
                 return ("%q"):format(ModTextFileGetContent(filename))
             elseif file_is_exist(filename) then
-                return ([[
-                    if CrossCall("hotload.file_get_write_time", "%s") ~= times["%s"] then
-                        local content = CrossCall("hotload.file_get_content", "%s")
-                        --当返回空字符串时，如果文件被清空，也清空文件，无需特化。如果文件读取失败，跳过热重载，等待下一次热重载。
-                        if content == nil then content = "" end
-                        ModTextFileSetContent("%s", content)
-                    end
-                ]]):format(filename, filename, filename, filename)
+                return ('CrossCall("hotload.file_update", "%s", times["%s"])'):format(filename, filename)
             end
             return ""
         end)

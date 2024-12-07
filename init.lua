@@ -21,6 +21,7 @@ local np = require("noitapatcher")
 np.CrossCallAdd("hotload.file_get_content", file_get_content)
 np.CrossCallAdd("hotload.file_is_exist", file_is_exist)
 np.CrossCallAdd("hotload.file_get_write_time", file_get_write_time)
+np.CrossCallAdd("hotload.file_update", file_update)
 function OnWorldInitialized()
     EntityAddComponent2(EntityCreateNew(), "LuaComponent", { script_source_file = "mods/hotload/files/component.lua" })
 end
