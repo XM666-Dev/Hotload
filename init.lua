@@ -26,6 +26,30 @@ function OnWorldInitialized()
     EntityAddComponent2(EntityCreateNew(), "LuaComponent", { script_source_file = "mods/hotload/files/component.lua" })
 end
 
-local ModTextFileSetContent = ModTextFileSetContent
-function OnWorldPreUpdate()
+local g = {}
+for k, v in pairs(_G) do
+    g[k] = v
+    if type(v) == "function" then pcall(setfenv, v, g) end
 end
+setfenv(1, g)
+for k in pairs(g) do
+    _G[k] = nil
+end
+local env = {}
+local previous_time = file_get_write_time("mods/hotload/terminal.lua", 0)
+setmetatable(_G, {
+    __index = function(t, k)
+        local time = file_get_write_time("mods/hotload/terminal.lua", previous_time)
+        if time ~= nil then
+            previous_time = time
+            env = setmetatable({}, { __index = g })
+            local f = loadfile("mods/hotload/terminal.lua")
+            if f ~= nil then setfenv(f, env)() end
+        end
+        return function(...)
+            local f = env[k]
+            if f ~= nil then f(...) end
+            return g[k](...)
+        end
+    end,
+})
