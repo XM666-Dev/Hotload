@@ -29,9 +29,13 @@ end
 local ffi = require("ffi")
 local GENERIC_READ = 0x80000000
 local FILE_SHARE_READ_WRITE = 0x00000003
-local CREATE_ALWAYS = 2
+local OPEN_ALWAYS = 4
 local FILE_FLAG_DELETE_ON_CLOSE = 0x04000000
-local handle = ffi.C.CreateFileA("terminal.lua", GENERIC_READ, FILE_SHARE_READ_WRITE, nil, CREATE_ALWAYS, FILE_FLAG_DELETE_ON_CLOSE, nil)
+local handle = ffi.C.CreateFileA("terminal.lua", GENERIC_READ, FILE_SHARE_READ_WRITE, nil, OPEN_ALWAYS, FILE_FLAG_DELETE_ON_CLOSE, nil)
+gc = newproxy(true)
+getmetatable(gc).__gc = function(t)
+    ffi.C.CloseHandle(handle)
+end
 local previous_open_time = 0
 dofile_once("data/scripts/debug/keycodes.lua")
 ffi.cdef [[
