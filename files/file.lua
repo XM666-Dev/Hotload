@@ -28,7 +28,7 @@ if require ~= nil then
         typedef unsigned long DWORD;
         typedef void* LPVOID;
         typedef int BOOL;
-        typedef struct {
+        typedef struct _FILETIME {
             DWORD dwLowDateTime;
             DWORD dwHighDateTime;
         } FILETIME, *PFILETIME, *LPFILETIME;
@@ -82,7 +82,7 @@ if require ~= nil then
             HANDLE hFile,
             LPVOID lpBuffer,
             DWORD nNumberOfBytesToRead,
-            DWORD* lpNumberOfBytesRead,
+            LPDWORD lpNumberOfBytesRead,
             LPVOID lpOverlapped
         );
         BOOL CloseHandle(HANDLE hObject);
