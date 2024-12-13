@@ -32,9 +32,13 @@ local t = setmetatable({}, {
         if type(v) == "function" then
             return function(...)
                 setfenv(0, env)
-                local list = { v(...) }
+                local list = { pcall(v, ...) }
                 setfenv(0, t)
-                return unpack(list)
+                if list[1] then
+                    return unpack(list, 2)
+                else
+                    print_error(list[2])
+                end
             end
         end
         return v
