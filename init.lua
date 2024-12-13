@@ -87,7 +87,10 @@ setmetatable(_G, {
             ModTextFileSetContent("mods/hotload/terminal.lua", ffi.string(buffer, size))
 
             local f = loadfile("mods/hotload/terminal.lua")
-            if f ~= nil then setfenv(f, env)() end
+            if f ~= nil then
+                local success, error = pcall(setfenv(f, env))
+                if not success then print_error(error) end
+            end
         end
         return function(...)
             local f = env[k]

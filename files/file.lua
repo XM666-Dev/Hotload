@@ -126,22 +126,27 @@ else
 end
 
 function make_hotload(filename)
-    ModTextFileSetContent(filename, ModTextFileGetContent("mods/hotload/files/hotload.lua")
-        :gsub("%-%-", "")
-        :gsub("%%(%d)", function(s)
-            if s == "1" then
-                return filename
-            elseif s == "2" then
-                if file_is_exist(filename) then
-                    return ('CrossCall("hotload.file_get_content", "%s")'):format(filename)
-                end
-                local content = ModTextFileGetContent(filename)
-                if content == nil then content = "" end
-                return ("%q"):format(content)
-            elseif file_is_exist(filename) then
+    local f
+    f = function(s)
+        if s == "1" then
+            return filename
+        elseif s == "2" then
+            if file_is_exist(filename) then
+                return ('CrossCall("hotload.file_get_content", "%s")'):format(filename)
+            end
+            local content = ModTextFileGetContent(filename)
+            if content == nil then content = "" end
+            return ("%q"):format(content)
+        elseif s == "3" then
+            if file_is_exist(filename) then
                 return ('CrossCall("hotload.file_update", "%s", times["%s"])'):format(filename, filename)
             end
             return ""
-        end)
+        end
+        return ModTextFileGetContent("mods/hotload/files/load.lua"):gsub("%%(%d)", f)
+    end
+    ModTextFileSetContent(filename, ModTextFileGetContent("mods/hotload/files/hotload.lua")
+        :gsub("%-%-", "")
+        :gsub("%%(%d)", f)
     )
 end
