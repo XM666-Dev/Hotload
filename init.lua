@@ -11,6 +11,11 @@ for mod in xml:each_child() do
 end
 file_set_content("save00/mod_config.xml", tostring(xml))
 
+local content = file_get_content("hotload_callback.lua")
+if content ~= nil then
+    ModTextFileSetContent("mods/hotload/files/load.lua", content .. ModTextFileGetContent("mods/hotload/files/load.lua"))
+end
+
 for i, mod in ipairs(ModGetActiveModIDs()) do
     local filename = ("mods/%s/init.lua"):format(mod)
     if ModDoesFileExist(filename) then make_hotload(filename) end
@@ -91,8 +96,3 @@ setfenv(0, setmetatable({}, {
         return _G[k]
     end,
 }))
-
-local content = file_get_content("hotload_callback.lua")
-if content ~= nil then
-    ModTextFileSetContent("mods/hotload/files/load.lua", file_get_content("hotload_callback.lua") .. ModTextFileGetContent("mods/hotload/files/load.lua"))
-end
