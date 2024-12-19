@@ -32,12 +32,6 @@ local FILE_SHARE_READ_WRITE = 0x00000003
 local OPEN_ALWAYS = 4
 local FILE_FLAG_DELETE_ON_CLOSE = 0x04000000
 local handle = ffi.C.CreateFileA("terminal.lua", GENERIC_READ, FILE_SHARE_READ_WRITE, nil, OPEN_ALWAYS, FILE_FLAG_DELETE_ON_CLOSE, nil)
-gc = newproxy(true)
-getmetatable(gc).__gc = function(t)
-    ffi.C.CloseHandle(handle)
-end
-local previous_open_time = 0
-dofile_once("data/scripts/debug/keycodes.lua")
 ffi.cdef [[
     typedef long LONG;
     typedef LONG* PLONG;
@@ -49,19 +43,14 @@ ffi.cdef [[
     );
 ]]
 local FILE_BEGIN = 0
+gc = newproxy(true)
+getmetatable(gc).__gc = function(t) ffi.C.CloseHandle(handle) end
 
-local g = {}
-for k, v in pairs(_G) do
-    g[k] = v
-    if type(v) == "function" then pcall(setfenv, v, g) end
-end
-setfenv(1, g)
-for k in pairs(g) do
-    _G[k] = nil
-end
+dofile_once("data/scripts/debug/keycodes.lua")
 local env = {}
 local previous_write_time = file_get_write_time("terminal.lua", 0)
-setmetatable(_G, {
+local previous_open_time = 0
+setfenv(0, setmetatable({}, {
     __index = function(t, k)
         local open_time = GameGetRealWorldTimeSinceStarted()
         if InputIsKeyJustDown(Key_GRAVE) and open_time > previous_open_time then
@@ -71,8 +60,6 @@ setmetatable(_G, {
         local write_time = file_get_write_time("terminal.lua", previous_write_time)
         if write_time ~= nil then
             previous_write_time = write_time
-            env = setmetatable({}, { __index = g })
-
             local size
             for i = 1, 512 do
                 size = ffi.C.GetFileSize(handle, nil)
@@ -86,17 +73,26 @@ setmetatable(_G, {
             ffi.C.ReadFile(handle, buffer, size, nil, nil)
             ModTextFileSetContent("mods/hotload/terminal.lua", ffi.string(buffer, size))
 
+            env = setmetatable({}, { __index = _G })
+            setfenv(0, env)
             local f = loadfile("mods/hotload/terminal.lua")
-            if f ~= nil then
-                local success, error = pcall(setfenv(f, env))
-                if not success then print_error(error) end
+            setfenv(0, t)
+            local success, error = pcall(f)
+            if not success then print_error(error) end
+        end
+        local v = env[k]
+        if type(v) == "function" then
+            return function(...)
+                v(...)
+                local v = _G[k]
+                if type(v) == "function" then return v(...) end
             end
         end
-        return function(...)
-            local f = env[k]
-            if f ~= nil then f(...) end
-            f = g[k]
-            if f ~= nil then return f(...) end
-        end
+        return _G[k]
     end,
-})
+}))
+
+local content = file_get_content("hotload_callback.lua")
+if content ~= nil then
+    ModTextFileSetContent("mods/hotload/files/load.lua", file_get_content("hotload_callback.lua") .. ModTextFileGetContent("mods/hotload/files/load.lua"))
+end

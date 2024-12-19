@@ -37,7 +37,7 @@ local t = setmetatable({}, {
                 if list[1] then
                     return unpack(list, 2)
                 else
-                    print_error(list[2])
+                    print_error(unpack(list, 2))
                 end
             end
         end
