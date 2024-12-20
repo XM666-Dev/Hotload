@@ -30,7 +30,7 @@ local scripts = {
 local found = { [""] = true }
 ____cached_func = function()
     for i, entity in ipairs(EntityGetInRadius(0, 0, math.huge)) do
-        for i, lua in ipairs(EntityGetComponent(entity, "LuaComponent") or {}) do
+        for i, lua in ipairs(EntityGetComponentIncludingDisabled(entity, "LuaComponent") or {}) do
             for i, script in ipairs(scripts) do
                 local filename = ComponentGetValue2(lua, script)
                 if not found[filename] then
