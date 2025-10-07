@@ -14,7 +14,7 @@ dofile_once = function(filename)
         local f, err = loadfile(filename)
         if f == nil then return f, err end
         result = f()
-        __loadonce[filename] = { result }
+        __loadonce[filename] = {result}
         do_mod_appends(filename)
     end
     return result
