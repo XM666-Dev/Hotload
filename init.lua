@@ -78,7 +78,35 @@ setfenv(0, setmetatable({}, {
             ffi.C.ReadFile(handle, buffer, size, nil, nil)
             ModTextFileSetContent("mods/hotload/terminal.lua", ffi.string(buffer, size))
 
-            env = setmetatable({__loadonce = {}, __loaded = {}}, {__index = _G})
+            local __loadonce = {}
+            local __loaded = {}
+            env = setmetatable({
+                dofile_once = function(filename)
+                    local result = nil
+                    local cached = __loadonce[filename]
+                    if cached ~= nil then
+                        result = cached[1]
+                    else
+                        local f, err = loadfile(filename)
+                        if f == nil then return f, err end
+                        result = f()
+                        __loadonce[filename] = {result}
+                        do_mod_appends(filename)
+                    end
+                    return result
+                end,
+                dofile = function(filename)
+                    local f = __loaded[filename]
+                    if f == nil then
+                        f, err = loadfile(filename)
+                        if f == nil then return f, err end
+                        __loaded[filename] = f
+                    end
+                    local result = f()
+                    do_mod_appends(filename)
+                    return result
+                end,
+            }, {__index = _G})
             setfenv(0, env)
             local f = loadfile("mods/hotload/terminal.lua")
             local success, error = pcall(f)
