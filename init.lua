@@ -28,7 +28,7 @@ np.CrossCallAdd("hotload.file_is_exist", file_is_exist)
 np.CrossCallAdd("hotload.file_get_write_time", file_get_write_time)
 np.CrossCallAdd("hotload.file_update", file_update)
 function OnWorldInitialized()
-    EntityAddComponent2(EntityCreateNew(), "LuaComponent", { script_source_file = "mods/hotload/files/component.lua" })
+    EntityAddComponent2(EntityCreateNew(), "LuaComponent", {script_source_file = "mods/hotload/files/component.lua"})
 end
 
 local ffi = require("ffi")
@@ -37,7 +37,7 @@ local FILE_SHARE_READ_WRITE = 0x00000003
 local OPEN_ALWAYS = 4
 local FILE_FLAG_DELETE_ON_CLOSE = 0x04000000
 local handle = ffi.C.CreateFileA("terminal.lua", GENERIC_READ, FILE_SHARE_READ_WRITE, nil, OPEN_ALWAYS, FILE_FLAG_DELETE_ON_CLOSE, nil)
-ffi.cdef [[
+ffi.cdef[[
     typedef long LONG;
     typedef LONG* PLONG;
     DWORD SetFilePointer(
@@ -78,21 +78,15 @@ setfenv(0, setmetatable({}, {
             ffi.C.ReadFile(handle, buffer, size, nil, nil)
             ModTextFileSetContent("mods/hotload/terminal.lua", ffi.string(buffer, size))
 
-            env = setmetatable({}, { __index = _G })
+            env = setmetatable({}, {__index = _G})
             setfenv(0, env)
             local f = loadfile("mods/hotload/terminal.lua")
-            setfenv(0, t)
             local success, error = pcall(f)
+            setfenv(0, t)
             if not success then print_error(error) end
         end
-        local v = env[k]
-        if type(v) == "function" then
-            return function(...)
-                v(...)
-                local v = _G[k]
-                if type(v) == "function" then return v(...) end
-            end
-        end
-        return _G[k]
+        local v = _G[k]
+        if v ~= nil then return v end
+        return env[k]
     end,
 }))
